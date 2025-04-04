@@ -1,0 +1,14 @@
+curl "https://api.groq.com/openai/v1/chat/completions" \
+  -X POST \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ${GROQ_API_KEY}" \
+  -d '{
+         "messages": [],
+         "model": "deepseek-r1-distill-qwen-32b",
+         "temperature": 0.6,
+         "max_completion_tokens": 4096,
+         "top_p": 0.95,
+         "stream": true,
+         "stop": null
+       }'
+  
