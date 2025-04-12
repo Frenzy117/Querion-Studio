@@ -1,30 +1,17 @@
-// package com.example.fullstackapp.config;
-// import org.springframework.context.annotation.Bean;
-// import org.springframework.context.annotation.Configuration;
-// import org.springframework.web.cors.CorsConfiguration;
-// import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-// import org.springframework.web.filter.CorsFilter;
+package com.example.fullstackapp.config;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-// import java.util.List;
-// import java.util.logging.Logger;
 
-// @Configuration
-// public class corsConfig {
+@Configuration
+public class corsConfig implements WebMvcConfigurer{
 
-//     private static final Logger LOGGER = Logger.getLogger(corsConfig.class.getName());
-
-//     @Bean
-//     public CorsFilter corsFilter() {
-//         CorsConfiguration config = new CorsConfiguration();
-//         config.setAllowCredentials(true);
-//         config.setAllowedOrigins(List.of("http://localhost:3000")); 
-//         config.setAllowedHeaders(List.of("Authorization", "Content-Type", "Accept", "X-Requested-With"));
-//         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS")); 
-
-//         LOGGER.info("CORS configuration loaded");
-
-//         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
-//         source.registerCorsConfiguration("/**", config);
-//         return new CorsFilter(source);
-//     }
-// }
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/**")
+            .allowedOrigins("http://localhost:3000") // your React frontend origin
+            .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+            .allowedHeaders("*");
+    }
+}

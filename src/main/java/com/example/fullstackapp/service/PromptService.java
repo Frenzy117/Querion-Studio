@@ -1,0 +1,196 @@
+package com.example.fullstackapp.service;
+
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+
+import javax.management.RuntimeErrorException;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.example.fullstackapp.model.AIModel;
+import com.example.fullstackapp.model.PromptRequest;
+import com.example.fullstackapp.repository.ModelRepository;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+@Service
+public class PromptService {
+
+    @Autowired
+    private ModelRepository modelRepository;
+    
+    public String handlePrompt(PromptRequest promptRequest) throws Exception {
+        AIModel model = modelRepository.findByName(promptRequest.getModelName()).orElseThrow(() -> new RuntimeException("Model not found"));
+        String provider = model.getProvider();
+        System.out.println("model from request: " + promptRequest.getModelName());
+        System.out.println("prompt from request: " + promptRequest.getPrompt());
+        ObjectMapper mapper = new ObjectMapper();
+        
+
+        switch (provider.toLowerCase())
+        {
+            case "google":
+            {
+                String response = handleGemini(model, promptRequest.getPrompt());
+                JsonNode root = mapper.readTree(response);
+                String responseText = root.path("candidates")
+                    .get(0)
+                    .path("content")
+                    .path("parts")
+                    .get(0)
+                    .path("text")
+                    .asText();
+                return responseText;
+            }
+            case "groq":
+            {
+                String response = handleGroq(model, promptRequest.getPrompt());
+                JsonNode root = mapper.readTree(response);
+                String responseText = root.path("choices")
+                .get(0)
+                .path("message")
+                .path("content")
+                .asText();
+                return responseText;
+            }
+            case "mistral":
+            {
+                String response = handleMistral(model, promptRequest.getPrompt());
+                JsonNode root = mapper.readTree(response);
+                String responseText = root.path("choices")
+                .get(0)
+                .path("message")
+                .path("content")
+                .asText();
+                return responseText;
+            }
+            default:
+                throw new RuntimeException("Model provider not supported.");
+        }
+    }
+    private String handleGemini(AIModel model, String prompt) throws Exception
+    {
+        String body = 
+        """
+        {
+            "contents": 
+            [
+                {
+                    "role": "user",
+                    "parts": 
+                    [
+                        {
+                            "text": "%s"
+                        },
+                    ]
+                },
+            ],
+            "generationConfig": 
+            {
+                "responseMimeType": "text/plain"
+            },
+            "safetySettings": 
+            [
+                {
+                    "category": "HARM_CATEGORY_HARASSMENT",
+                    "threshold": "BLOCK_LOW_AND_ABOVE"
+                },
+                {
+                    "category": "HARM_CATEGORY_HATE_SPEECH",
+                    "threshold": "BLOCK_LOW_AND_ABOVE"
+                },
+                {
+                    "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+                    "threshold": "BLOCK_LOW_AND_ABOVE"
+                },
+                {
+                    "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+                    "threshold": "BLOCK_LOW_AND_ABOVE"
+                },
+            ],
+        }
+        """;
+        String finalBody = String.format(body,prompt);
+        String url = model.getApiUrl() + "?key=" + model.getAuthKey();
+        return sendHttpReq(url, finalBody);
+    }
+    
+    private String handleGroq(AIModel model, String prompt) throws Exception
+    {
+        String body = 
+        """
+        {
+            "model": "llama-3.1-8b-instant",
+            "messages": 
+            [
+                {
+                    "role": "user",
+                    "content": "%s"
+                }
+            ],
+            
+            "temperature": 0.6,
+            "max_completion_tokens": 4096,
+            "top_p": 0.95,
+            "stream": false,
+            "stop": null
+        }
+        """;
+        String finalBody = String.format(body,prompt);
+        return sendGroqHttpReq(model.getApiUrl(), finalBody, model.getAuthKey());
+    }
+    
+    private String handleMistral(AIModel model, String prompt) throws Exception
+    {
+        String body = 
+        """
+            {
+                "model": "mistral-large-latest",
+                "messages": 
+                [
+                    {
+                        "role": "user",
+                        "content": "%s"
+                    }
+                ]
+            }
+        """;
+        String finalBody = String.format(body,prompt);
+        return sendAuthHttpReq(model.getApiUrl(), finalBody, model.getAuthKey());
+    }
+
+    private String sendHttpReq(String url, String body) throws Exception{
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url))
+        .header("Content-Type", "application/json")
+        .POST(HttpRequest.BodyPublishers.ofString(body))
+        .build();
+        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        return response.body();
+    }
+
+    private String sendAuthHttpReq(String url, String body, String apiKey) throws Exception{
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url))
+        .header("Content-Type", "application/json")
+        .header("Authorization","Bearer " + apiKey)
+        .header("Accept","application/json")
+        .POST(HttpRequest.BodyPublishers.ofString(body))
+        .build();
+        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        return response.body();
+    }
+    private String sendGroqHttpReq(String url, String body, String apiKey) throws Exception{
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url))
+        .header("Content-Type", "application/json")
+        .header("Authorization","Bearer " + apiKey)
+        .POST(HttpRequest.BodyPublishers.ofString(body))
+        .build();
+        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+        return response.body();
+    }
+}

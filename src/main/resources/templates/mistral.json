@@ -1,0 +1,18 @@
+{
+    "url": "https://api.mistral.ai/v1/chat/completions",
+    "method": "POST",
+    "headers": {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+      "Authorization": "Bearer YOUR_MISTRAL_API_KEY"
+    },
+    "body": {
+      "model": "mistral-large-latest",
+      "messages": [
+        {
+          "role": "user",
+          "content": "What is the best French cheese?"
+        }
+      ]
+    }
+  }
