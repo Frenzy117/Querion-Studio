@@ -5,8 +5,6 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 
-import javax.management.RuntimeErrorException;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -25,8 +23,9 @@ public class PromptService {
     public String handlePrompt(PromptRequest promptRequest) throws Exception {
         AIModel model = modelRepository.findByName(promptRequest.getModelName()).orElseThrow(() -> new RuntimeException("Model not found"));
         String provider = model.getProvider();
-        System.out.println("model from request: " + promptRequest.getModelName());
-        System.out.println("prompt from request: " + promptRequest.getPrompt());
+        System.out.println("System Instruction from Request: " + promptRequest.getSystemInstruction());
+        System.out.println("Model from Request: " + promptRequest.getModelName());
+        System.out.println("Prompt from Request: " + promptRequest.getPrompt());
         ObjectMapper mapper = new ObjectMapper();
         
 
@@ -34,7 +33,7 @@ public class PromptService {
         {
             case "google":
             {
-                String response = handleGemini(model, promptRequest.getPrompt());
+                String response = handleGemini(model, promptRequest.getPrompt(), promptRequest.getSystemInstruction());
                 JsonNode root = mapper.readTree(response);
                 String responseText = root.path("candidates")
                     .get(0)
@@ -71,7 +70,7 @@ public class PromptService {
                 throw new RuntimeException("Model provider not supported.");
         }
     }
-    private String handleGemini(AIModel model, String prompt) throws Exception
+    private String handleGemini(AIModel model, String prompt, String systemInstruction) throws Exception
     {
         String body = 
         """
@@ -88,6 +87,15 @@ public class PromptService {
                     ]
                 },
             ],
+            "systemInstruction": 
+            {
+                "parts": 
+                [
+                    {
+                        "text": "%s"
+                    },
+                ]
+            },
             "generationConfig": 
             {
                 "responseMimeType": "text/plain"
@@ -113,7 +121,7 @@ public class PromptService {
             ],
         }
         """;
-        String finalBody = String.format(body,prompt);
+        String finalBody = String.format(body,prompt, systemInstruction);
         String url = model.getApiUrl() + "?key=" + model.getAuthKey();
         return sendHttpReq(url, finalBody);
     }
@@ -183,6 +191,7 @@ public class PromptService {
         HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
         return response.body();
     }
+
     private String sendGroqHttpReq(String url, String body, String apiKey) throws Exception{
         HttpClient client = HttpClient.newHttpClient();
         HttpRequest request = HttpRequest.newBuilder().uri(URI.create(url))

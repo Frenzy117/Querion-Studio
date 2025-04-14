@@ -9,5 +9,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class PromptRequest {
     private String modelName;
+    private String systemInstruction;
     private String prompt;
 }
